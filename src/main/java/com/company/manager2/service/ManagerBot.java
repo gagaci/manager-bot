@@ -4,11 +4,6 @@ import com.company.manager2.entity.user.Region;
 import com.company.manager2.entity.user.UserState;
 import com.company.manager2.entity.user.UserStep;
 import com.company.manager2.service.user.UserService;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +14,9 @@ import org.telegram.telegrambots.longpolling.util.LongPollingSingleThreadUpdateC
 import org.telegram.telegrambots.meta.api.methods.AnswerCallbackQuery;
 import org.telegram.telegrambots.meta.api.methods.commands.SetMyCommands;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.send.SendVideo;
 import org.telegram.telegrambots.meta.api.objects.CallbackQuery;
+import org.telegram.telegrambots.meta.api.objects.InputFile;
 import org.telegram.telegrambots.meta.api.objects.Update;
 import org.telegram.telegrambots.meta.api.objects.User;
 import org.telegram.telegrambots.meta.api.objects.chat.Chat;
@@ -34,6 +31,8 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.Keyboard
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.KeyboardRow;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import org.telegram.telegrambots.meta.generics.TelegramClient;
+
+import java.util.*;
 
 @Configuration
 @Slf4j
@@ -76,9 +75,9 @@ public class ManagerBot implements LongPollingSingleThreadUpdateConsumer {
       String chatType = chat.getType();
       long chatId = update.getMessage().getChatId();
 
-      switch (chatType) {
-        case "private" -> handlePrivateMessage(message, chatId, message.getFrom());
-      }
+        if (chatType.equals("private")) {
+            handlePrivateMessage(message, chatId, message.getFrom());
+        }
     } else if (update.hasCallbackQuery()) {
       handleCallbackQuery(update.getCallbackQuery());
     }
@@ -113,9 +112,58 @@ public class ManagerBot implements LongPollingSingleThreadUpdateConsumer {
     }
 
     if ("/start".equals(text)) {
-      sendMessage(chatId, getMessage("welcome.message"));
-      userState.setUserStep(UserStep.ASK_NAME);
-    } else if (userState.getUserStep() == UserStep.ASK_NAME) {
+      log.info("/ start command chatId {} username {}", chatId, user.getUserName());
+
+        SendVideo firstVideoMessage = new SendVideo(chatId.toString(), new InputFile(
+                botDependencies.getVideoService().getFirstVideo()));
+
+        SendVideo secondVideoMessage = new SendVideo(chatId.toString(), new InputFile(
+                botDependencies.getVideoService().getSecondVideo()));
+
+        List<InlineKeyboardRow> keyboard = new ArrayList<>();
+
+        InlineKeyboardRow row = new InlineKeyboardRow();
+
+
+        InlineKeyboardButton continueButton = InlineKeyboardButton.builder()
+                .text("Davom etirish")
+                .callbackData("continue")
+                .build();
+
+        InlineKeyboardButton stopButton = InlineKeyboardButton.builder()
+                .text("Qiziq emas")
+                .callbackData("stop")
+                .build();
+
+        row.add(continueButton);
+        row.add(stopButton);
+
+        keyboard.add(row);
+
+        InlineKeyboardMarkup replyMarkUp = InlineKeyboardMarkup.builder()
+                .keyboard(keyboard)
+                .build();
+
+
+        SendMessage textMessage = SendMessage.builder()
+                .chatId(chatId)
+                .text(getMessage("offer.message"))
+                .parseMode("HTML")
+                .replyMarkup(replyMarkUp)
+                .build();
+
+        userState.setUserStep(UserStep.SHOW_VIDEO);
+        try {
+            log.info("show video stage chatId {} userName {}", chatId, user.getUserName());
+            telegramClient.execute(firstVideoMessage);
+            telegramClient.execute(secondVideoMessage);
+            telegramClient.execute(textMessage);
+        } catch (TelegramApiException e) {
+            throw new RuntimeException(e);
+        }
+        userState.setUserStep(UserStep.ASK_NAME);
+    }
+    else if (userState.getUserStep() == UserStep.ASK_NAME) {
       botDependencies.getUserService()
           .updateUser(chatId, user.getUserName(), text, null, null, UserStep.ASK_PHONE);
       userState.setUserStep(UserStep.ASK_PHONE);
@@ -204,14 +252,24 @@ public class ManagerBot implements LongPollingSingleThreadUpdateConsumer {
   }
 
   private void handleCallbackQuery(CallbackQuery callbackQuery) {
+    UserService userService = botDependencies.getUserService();
+
     Long chatId = callbackQuery.getMessage().getChatId();
     String data = callbackQuery.getData();
 
-    if (data.startsWith("region_")) {
+    if (data.startsWith("continue")) {
+
+      userService
+              .setUserStep(chatId,UserStep.ASK_NAME);
+      sendMessage(chatId,getMessage("welcome.message"));
+
+    } else if (data.startsWith("stop")) {
+      sendMessage(chatId, getMessage("rejected.message"));
+    }
+    else if (data.startsWith("region_")) {
       String regionName = data.replace("region_", "");
       Region selectedRegion = Region.valueOf(regionName);
 
-      UserService userService = botDependencies.getUserService();
 
       userService
           .updateUser(chatId, null, null, null, selectedRegion, UserStep.COMPLETED);
