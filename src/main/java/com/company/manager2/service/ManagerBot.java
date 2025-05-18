@@ -116,9 +116,11 @@ public class ManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
         SendVideo firstVideoMessage = new SendVideo(chatId.toString(), new InputFile(
                 botDependencies.getVideoService().getFirstVideo()));
+        firstVideoMessage.setSupportsStreaming(true);
 
         SendVideo secondVideoMessage = new SendVideo(chatId.toString(), new InputFile(
                 botDependencies.getVideoService().getSecondVideo()));
+        secondVideoMessage.setSupportsStreaming(true);
 
         List<InlineKeyboardRow> keyboard = new ArrayList<>();
 
@@ -126,12 +128,12 @@ public class ManagerBot implements LongPollingSingleThreadUpdateConsumer {
 
 
         InlineKeyboardButton continueButton = InlineKeyboardButton.builder()
-                .text("Davom etirish")
+                .text(getMessage("continue.message"))
                 .callbackData("continue")
                 .build();
 
         InlineKeyboardButton stopButton = InlineKeyboardButton.builder()
-                .text("Qiziq emas")
+                .text(getMessage("stop.message"))
                 .callbackData("stop")
                 .build();
 
@@ -185,7 +187,7 @@ public class ManagerBot implements LongPollingSingleThreadUpdateConsumer {
   }
 
   private ReplyKeyboardMarkup shareContactKeyBoard() {
-    KeyboardButton contactButton = new KeyboardButton("Kontaktni jo'natish");
+    KeyboardButton contactButton = new KeyboardButton(getMessage("share-contact.message"));
     contactButton.setRequestContact(true);
 
     KeyboardRow row = new KeyboardRow();

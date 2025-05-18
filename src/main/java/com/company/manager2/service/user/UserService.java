@@ -23,7 +23,6 @@ public class UserService {
         .orElseGet(() -> {
           User user = User.builder()
               .chatId(chatId)
-              .createdAt(LocalDateTime.now())
               .build();
           return userRepository.save(user);
         });
