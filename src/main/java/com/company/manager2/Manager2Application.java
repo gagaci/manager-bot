@@ -26,6 +26,11 @@ public class Manager2Application {
     // Register our bot
     botsApplication.registerBot(this.managerBot.getToken(), this.managerBot);
     System.out.println("the bot successfully started!");
+      try {
+          Thread.currentThread().join();
+      } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+      }
   }
 
 }
